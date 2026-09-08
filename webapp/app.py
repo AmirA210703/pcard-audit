@@ -93,6 +93,10 @@ def api_ask():
         return jsonify(nl_query.ask(question, payload.get("history")))
     except nl_query.NotConfigured as exc:
         return jsonify({"ok": False, "error": str(exc), "needs_key": True}), 503
+    except nl_query.Unavailable as exc:
+        # The provider is busy. Nothing is wrong with the question or the key, so
+        # say so and let the auditor retry.
+        return jsonify({"ok": False, "error": str(exc), "retry": True}), 503
     except Exception as exc:
         app.logger.error("ask failed: %s", traceback.format_exc())
         return jsonify({"ok": False, "error": "The model call failed: %s" % exc}), 502

@@ -23,8 +23,31 @@ import re
 import pcard_db
 
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
 MAX_TOKENS = 8000
+
+# Free-tier capacity moves around, and the newest model is the most contended --
+# a question can come back "503 ... currently experiencing high demand" or a 504
+# through no fault of the request.  So a busy model is retried on the next name
+# here instead of failing the auditor's question.  GEMINI_MODEL is tried first,
+# whatever it is set to.
+#
+# This order was measured against a new free-tier key: 3.7 answered in 1.4 s,
+# 3.6 in 3.9 s, 3.5 in 8.0 s and 3.5-flash-lite in 0.6 s, while the flagship
+# gemini-3.8-flash timed out and the 2.5 series returns 404 "no longer available
+# to new users".  Deliberately no 2.5 entries and no `-latest` alias, which
+# resolves to the flagship and inherits its queue.
+GEMINI_FALLBACKS = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+]
+
+# Per attempt, in milliseconds.  This has to leave room for several attempts
+# inside the ~100 s that hosting proxies allow before they return their own
+# error page -- which would reach the browser as HTML, not JSON.
+GEMINI_TIMEOUT_MS = 20_000
 
 
 # Values left over from .env.example. Treated as "not set" so that the user gets a
@@ -46,6 +69,30 @@ def _model_not_found(exc) -> bool:
     """True when the provider rejected the model name itself."""
     text = str(exc).lower()
     return "not found" in text or "404" in text or "unsupported model" in text
+
+
+# Conditions that another model might not be suffering from: capacity, and the
+# per-model free-tier quota.
+_TRY_ANOTHER_MODEL = (
+    "503", "unavailable", "high demand", "overloaded", "capacity",
+    "429", "resource_exhausted", "quota", "rate limit", "timeout", "timed out",
+)
+
+
+def _transient(exc) -> bool:
+    """True when the failure is about this model rather than the request."""
+    text = str(exc).lower()
+    return any(token in text for token in _TRY_ANOTHER_MODEL)
+
+
+def _gemini_candidates():
+    """GEMINI_MODEL first, then the fallbacks, without repeats."""
+    seen, out = set(), []
+    for name in [GEMINI_MODEL] + GEMINI_FALLBACKS:
+        if name and name not in seen:
+            seen.add(name)
+            out.append(name)
+    return out
 
 
 def _gemini_key():
@@ -195,6 +242,14 @@ class NotConfigured(Exception):
     """Raised when no usable API key is available."""
 
 
+class Unavailable(Exception):
+    """Raised when the provider is reachable but has no capacity right now.
+
+    Kept separate from NotConfigured because the remedy is different: waiting,
+    not fixing a key or a model name.
+    """
+
+
 _NO_KEY = (
     "The natural-language page needs an API key for a model provider. Put a real key on "
     "the GEMINI_API_KEY line of webapp/.env (get one at https://aistudio.google.com/apikey) "
@@ -267,7 +322,8 @@ def _ask_anthropic(question: str, history=None) -> str:
         )
         response = client.messages.create(**kwargs)
 
-    return "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+    text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+    return text, ANTHROPIC_MODEL
 
 
 # --------------------------------------------------------------------------- #
@@ -287,7 +343,16 @@ def _ask_gemini(question: str, history=None) -> str:
             "(pip install google-genai)."
         ) from exc
 
-    client = genai.Client(api_key=key)
+    # Cap each attempt, so that walking the fallback list still finishes before a
+    # hosting proxy gives up and replaces our JSON with its own HTML error page.
+    try:
+        client = genai.Client(
+            api_key=key,
+            http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS),
+        )
+    except TypeError:
+        # Older SDKs do not accept http_options here.
+        client = genai.Client(api_key=key)
 
     # Gemini has no assistant/user message objects in this call, so the prior
     # turns are folded into the prompt text.
@@ -303,30 +368,53 @@ def _ask_gemini(question: str, history=None) -> str:
         response_mime_type="application/json",
     )
 
-    def _call(config_kwargs):
+    def _call(model, config_kwargs):
         return client.models.generate_content(
-            model=GEMINI_MODEL,
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(**config_kwargs),
         )
 
-    try:
-        response = _call(dict(base, response_json_schema=RESPONSE_SCHEMA))
-    except Exception as exc:
-        # A retired or misspelled model name is worth its own message: the fix is
-        # an environment variable, not a code change.
-        if _model_not_found(exc):
-            raise NotConfigured(
-                "Gemini rejected the model name %r. Set GEMINI_MODEL to a current "
-                "model (for example gemini-2.5-flash) and restart. The list is at "
-                "https://ai.google.dev/gemini-api/docs/models." % GEMINI_MODEL
-            ) from exc
-        # Not every model / SDK version accepts a full JSON Schema here. JSON mode
-        # plus the schema described in the prompt is enough, because _parse() is
-        # tolerant and pcard_db.guard() is the real safety net.
-        response = _call(base)
+    def _one_model(model):
+        try:
+            return _call(model, dict(base, response_json_schema=RESPONSE_SCHEMA))
+        except Exception as exc:
+            if _model_not_found(exc) or _transient(exc):
+                raise
+            # Not every model / SDK version accepts a full JSON Schema here. JSON
+            # mode plus the schema described in the prompt is enough, because
+            # _parse() is tolerant and pcard_db.guard() is the real safety net.
+            return _call(model, base)
 
-    return response.text or ""
+    candidates = _gemini_candidates()
+    last = None
+    for model in candidates:
+        try:
+            response = _one_model(model)
+        except Exception as exc:
+            # A model that is missing or busy is worth trying the next name for;
+            # anything else (a bad key, a malformed request) is not.
+            if _model_not_found(exc) or _transient(exc):
+                last = exc
+                continue
+            raise
+        return (response.text or ""), model
+
+    # Every candidate failed the same way, so report the underlying cause plainly
+    # rather than as a generic 502.
+    if last is not None and _transient(last):
+        raise Unavailable(
+            "Gemini had no capacity for any of the models tried (%s). Google returns "
+            "this when the free tier is busy; it is usually temporary, so wait a "
+            "minute and ask again. The Prohibited purchases tab does not use the "
+            "model and is unaffected.\n\nProvider said: %s"
+            % (", ".join(candidates), last)
+        ) from last
+    raise NotConfigured(
+        "None of the Gemini models tried (%s) accepted the request. Set GEMINI_MODEL "
+        "to a current model from https://ai.google.dev/gemini-api/docs/models.\n\n"
+        "Provider said: %s" % (", ".join(candidates), last)
+    ) from last
 
 
 _BACKENDS = {"anthropic": _ask_anthropic, "gemini": _ask_gemini}
@@ -338,7 +426,7 @@ def to_sql(question: str, history=None) -> dict:
     if name is None:
         raise NotConfigured(_NO_KEY)
 
-    text = _BACKENDS[name](question, history)
+    text, used_model = _BACKENDS[name](question, history)
     data = _parse(text)
 
     return {
@@ -346,7 +434,9 @@ def to_sql(question: str, history=None) -> dict:
         "explanation": (data.get("explanation") or "").strip(),
         "answerable": bool(data.get("answerable", True)),
         "provider": name,
-        "model": model_name(),
+        # The model that actually answered, which is not always the configured
+        # one when the first choice was out of capacity.
+        "model": used_model,
     }
 
 

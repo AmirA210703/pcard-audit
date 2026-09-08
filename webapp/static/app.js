@@ -125,12 +125,34 @@ askForm.addEventListener('submit', function (event) {
   askBtn.disabled = true;
   askStatus.textContent = 'Writing and running the query…';
 
+  // A model call is slow, and a host's proxy may abandon the request and answer
+  // with its own HTML error page. Give up first, with our own message, so the
+  // auditor is never shown a JSON parse error.
+  var ctl = ('AbortController' in window) ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctl) { ctl.abort(); } }, 95000);
+
   fetch('/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: question })
+    body: JSON.stringify({ question: question }),
+    signal: ctl ? ctl.signal : undefined
   })
-    .then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+    .then(function (r) {
+      // Read as text first: an error page from the host in front of this app is
+      // HTML, and r.json() on it throws something that means nothing to a user.
+      return r.text().then(function (body) {
+        try {
+          return { status: r.status, data: JSON.parse(body) };
+        } catch (e) {
+          throw new Error(
+            r.status >= 500
+              ? 'the server took too long and the request was dropped (HTTP ' +
+                r.status + '). The model was probably busy — wait a moment and ask again.'
+              : 'the server sent an unexpected reply (HTTP ' + r.status + ').'
+          );
+        }
+      });
+    })
     .then(function (res) {
       var d = res.data;
       askStatus.textContent = '';
@@ -163,9 +185,17 @@ askForm.addEventListener('submit', function (event) {
     })
     .catch(function (err) {
       askStatus.textContent = '';
-      showError(askErr, 'Could not reach the server: ' + err.message);
+      if (err && err.name === 'AbortError') {
+        showError(askErr,
+          'The question took more than 95 seconds and was cancelled. That normally ' +
+          'means the model provider is busy rather than anything wrong with the ' +
+          'question — wait a moment and ask again. The Prohibited purchases tab does ' +
+          'not use the model and keeps working.');
+      } else {
+        showError(askErr, 'The request failed: ' + (err ? err.message : 'unknown error'));
+      }
     })
-    .finally(function () { askBtn.disabled = false; });
+    .finally(function () { clearTimeout(timer); askBtn.disabled = false; });
 });
 
 /* =============================================================== TAB 2 ==== */

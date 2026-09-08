@@ -22,32 +22,37 @@ import re
 
 import pcard_db
 
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
+# Same reasoning as the Gemini default below: this is a small, well-specified
+# translation job, so the cheap fast tier is the right choice.
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+# Turning one plain-language question into one SELECT is a small job, so the
+# cheapest, fastest tier is the right default -- a larger model buys nothing here
+# and is markedly slower under free-tier load.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 MAX_TOKENS = 8000
 
-# Free-tier capacity moves around, and the newest model is the most contended --
-# a question can come back "503 ... currently experiencing high demand" or a 504
-# through no fault of the request.  So a busy model is retried on the next name
-# here instead of failing the auditor's question.  GEMINI_MODEL is tried first,
+# Free-tier capacity moves around, so a busy model is retried on the next name
+# here rather than failing the auditor's question.  GEMINI_MODEL is tried first,
 # whatever it is set to.
 #
-# This order was measured against a new free-tier key: 3.7 answered in 1.4 s,
-# 3.6 in 3.9 s, 3.5 in 8.0 s and 3.5-flash-lite in 0.6 s, while the flagship
-# gemini-3.8-flash timed out and the 2.5 series returns 404 "no longer available
-# to new users".  Deliberately no 2.5 entries and no `-latest` alias, which
-# resolves to the flagship and inherits its queue.
+# Measured on this exact workload (the schema prompt plus a real question):
+# 3.5-flash-lite answered in 1.4 s using 1,421 tokens, 3.7-flash in 3.5 s using
+# 2,014, and 3.1-flash-lite in 4.0 s.  Deliberately absent:
+#   * gemini-3.6-flash    -- 504 DEADLINE_EXCEEDED after 44 s
+#   * gemini-3.8-flash    -- flagship, consistently out of capacity
+#   * gemini-flash-latest -- an alias for the flagship, so it inherits its queue
+#   * the whole 2.5 series -- 404 "no longer available to new users"
 GEMINI_FALLBACKS = [
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
 ]
 
-# Per attempt, in milliseconds.  This has to leave room for several attempts
-# inside the ~100 s that hosting proxies allow before they return their own
-# error page -- which would reach the browser as HTML, not JSON.
-GEMINI_TIMEOUT_MS = 20_000
+# Per attempt, in milliseconds.  Four candidates at this ceiling stay inside the
+# ~100 s a hosting proxy allows before it returns its own error page -- which
+# would reach the browser as HTML rather than JSON.
+GEMINI_TIMEOUT_MS = 15_000
 
 
 # Values left over from .env.example. Treated as "not set" so that the user gets a
@@ -71,11 +76,18 @@ def _model_not_found(exc) -> bool:
     return "not found" in text or "404" in text or "unsupported model" in text
 
 
-# Conditions that another model might not be suffering from: capacity, and the
-# per-model free-tier quota.
+# Conditions that another model might not be suffering from: capacity, the
+# per-model free-tier quota, and a model that is simply too slow to answer.
+#
+# 504 / DEADLINE_EXCEEDED belongs here and was missing, which is what made a
+# deadline read as a permanent failure: the chain stopped on the first model
+# instead of moving to the next one, and the auditor got a bare
+# "The model call failed: 504 DEADLINE_EXCEEDED".
 _TRY_ANOTHER_MODEL = (
     "503", "unavailable", "high demand", "overloaded", "capacity",
-    "429", "resource_exhausted", "quota", "rate limit", "timeout", "timed out",
+    "504", "deadline", "timeout", "timed out",
+    "429", "resource_exhausted", "quota", "rate limit",
+    "500 internal", "internal error",
 )
 
 

@@ -149,8 +149,8 @@ if the key is missing.
 | `GEMINI_API_KEY` | for tab 1 (option A) | — | Google AI Studio key; `GOOGLE_API_KEY` also works |
 | `ANTHROPIC_API_KEY` | for tab 1 (option B) | — | Anthropic API key |
 | `AI_PROVIDER` | no | whichever key is set | `gemini` or `anthropic` |
-| `GEMINI_MODEL` | no | `gemini-3.8-flash` | Gemini model that writes the SQL |
-| `ANTHROPIC_MODEL` | no | `claude-opus-5` | Claude model that writes the SQL |
+| `GEMINI_MODEL` | no | `gemini-3.5-flash-lite` | Gemini model tried first; busy or missing models fall through to the next in `GEMINI_FALLBACKS` |
+| `ANTHROPIC_MODEL` | no | `claude-haiku-4-5-20251001` | Claude model that writes the SQL |
 | `ANTHROPIC_WORKSPACE_ID` | only for a multi-workspace key | — | Workspace the request runs in |
 | `PORT` / `HOST` | no | `5000` / `127.0.0.1` | Local server binding |
 

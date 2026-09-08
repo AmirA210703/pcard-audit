@@ -516,3 +516,59 @@ T3_RESULTS = {
  "documented on those cards.",
 ],
 }
+
+# --------------------------------------------------------------------------- #
+# Part IV -- the two links the assignment asks to be submitted, and a short
+# account of how the delivered tool meets each stated requirement.
+# --------------------------------------------------------------------------- #
+
+PART4_WEBSITE = "https://pcard-audit-workbench.onrender.com"
+PART4_GITHUB = "https://github.com/AmirA210703/pcard-audit"
+
+PART4_NOTE = [
+ "Part IV — what was built",
+ "The P-Card Audit Workbench is a two-tab Flask application deployed at "
+ + PART4_WEBSITE + ", with the source at " + PART4_GITHUB + ". It is served on a free "
+ "hosting plan that suspends the service after 15 minutes of inactivity, so the first "
+ "request after an idle period takes roughly 40 seconds while the instance restarts; "
+ "subsequent questions answer in one to three seconds.",
+
+ "Tab 1 — Ask the data. The auditor types a question in plain language. The question and "
+ "the table definition, and nothing else, are sent to a language model, which returns a "
+ "single SQLite SELECT. The server executes that query itself and displays the result "
+ "together with the query and a plain-language explanation, so the logic can be checked "
+ "before the answer is relied upon. No transaction data is ever sent to the model. Three "
+ "of the assignment's own tests were reproduced through this tab as a check on the "
+ "translation: 457 cardholder-months over $10,000 (Control 2), 33 transactions over "
+ "$5,000 (Control 3), and 269 charges between $4,500 and $4,999.99 (Part III Question 5).",
+
+ "Tab 2 — Prohibited purchases. The dashboard opens with numbered instructions. A year "
+ "selector covers 2010 to 2014 and defaults to the audit year. The description search and "
+ "the vendor search are presented as two separate, colour-coded panels with their own "
+ "labels, help text and buttons, so it is always clear which field is being searched. All "
+ "fourteen prohibited categories from the procedure above are listed with pre-loaded search "
+ "terms, and each category can be searched one term at a time or in full with a single "
+ "click. Results carry the transaction detail needed for follow-up — dates, cardholder, "
+ "vendor, description, amount and MCC — with sortable columns, a minimum-amount filter, a "
+ "spend-by-month chart over the whole matching population, an explicit marker on any charge "
+ "above the $5,000 single-transaction limit, and CSV export for the working papers. Each "
+ "category also records the false positives found when the 2014 data was tested, because "
+ "a keyword hit is a lead and not a finding.",
+
+ "Protecting the API key. The key is never in the repository. It is read from an "
+ "environment variable at run time, held as an encrypted secret by the hosting platform "
+ "and injected only into the running process, and it is never sent to the browser — the "
+ "model is called server-side, so the key appears in no page source and in no network "
+ "request the user can see. Locally it lives in a .env file that is listed in .gitignore. "
+ "A check_secrets.sh script is installed as a git pre-commit hook and refuses any commit "
+ "containing a string shaped like a real key, or any commit that would track a .env file; "
+ "it ran on every commit in this repository's history. The published repository was also "
+ "scanned for key patterns after publication, and is clean.",
+
+ "Read-only by construction. The database connection is opened in read-only mode, so no "
+ "request can alter the evidence file. Every generated query must additionally pass a "
+ "guard that accepts a single SELECT or WITH ... SELECT and rejects INSERT, UPDATE, "
+ "DELETE, DROP, ALTER, CREATE, ATTACH and PRAGMA; a query still running after 20 seconds "
+ "is stopped. Dashboard keyword searches are parameter-bound, so a keyword such as "
+ "%' OR 1=1 -- is treated as literal text and never as SQL.",
+]

@@ -71,6 +71,7 @@ def main():
     fr_titles = [5, 6, 7, 8]
 
     n_sql = n_res = n_ic = n_fr = 0
+    n_links = n_note = 0
     n_ictest = n_frtest = 0
     ictest_order = [8, 9, 10, 11, 12, 13, 14]
     frtest_order = [5, 6, 7, 8]
@@ -119,6 +120,27 @@ def main():
             replacements.append((p, rebuild(p, [content.T3_TESTS[num]])))
             continue
 
+        # 5. Part IV: fill the two links in on the lines that ask for them, and
+        #    hang the account of what was built off the last paragraph.
+        if t.strip() == 'A link to your live website.':
+            n_links += 1
+            replacements.append((p, rebuild(
+                p, ['A link to your live website:  ' + content.PART4_WEBSITE])))
+            continue
+        if t.strip() == 'A link to your GitHub repository.':
+            n_links += 1
+            replacements.append((p, rebuild(
+                p, ['A link to your GitHub repository:  ' + content.PART4_GITHUB])))
+            continue
+        if t.startswith('Important — protect your API key'):
+            n_note += 1
+            lines = [t]
+            for para in content.PART4_NOTE:
+                lines.append('')
+                lines.append(para)
+            replacements.append((p, rebuild(p, lines)))
+            continue
+
     for old, new in replacements:
         idx = out.find(old)
         if idx < 0:
@@ -126,9 +148,10 @@ def main():
         out = out[:idx] + new + out[idx + len(old):]
 
     print('replaced: %d sql, %d results, %d control titles, %d question titles, '
-          '%d control tests, %d question tests'
-          % (n_sql, n_res, n_ic, n_fr, n_ictest, n_frtest))
-    assert (n_sql, n_res, n_ic, n_fr, n_ictest, n_frtest) == (22, 22, 7, 4, 7, 4), 'placeholder count mismatch'
+          '%d control tests, %d question tests, %d part IV links, %d part IV note'
+          % (n_sql, n_res, n_ic, n_fr, n_ictest, n_frtest, n_links, n_note))
+    assert (n_sql, n_res, n_ic, n_fr, n_ictest, n_frtest, n_links, n_note) == \
+        (22, 22, 7, 4, 7, 4, 2, 1), 'placeholder count mismatch'
 
     blobs['word/document.xml'] = out.encode('utf-8')
     if os.path.exists(OUT):

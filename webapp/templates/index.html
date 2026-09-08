@@ -5,15 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OSU P-Card Audit Workbench</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+  // Apply the saved theme before first paint, so a dark-mode viewer never sees
+  // a white flash. Wrapped because storage throws in some privacy modes.
+  try {
+    var t = localStorage.getItem('pcard-theme');
+    if (t) { document.documentElement.setAttribute('data-theme', t); }
+  } catch (e) {}
+</script>
 </head>
 <body>
 
 <header class="topbar">
-  <div class="brand">
-    <span class="mark">P</span>
-    <div>
-      <h1>P-Card Audit Workbench</h1>
-      <p>Oklahoma State University &middot; internal audit &middot; <code>{{ db_name }}</code></p>
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="mark">P</span>
+      <div>
+        <h1>P-Card Audit Workbench</h1>
+        <p class="sub">Oklahoma State University &middot; internal audit &middot; <code>{{ db_name }}</code></p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="theme-toggle" title="Switch between light and dark" aria-label="Switch between light and dark">
+        <svg class="i-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+        </svg>
+        <svg class="i-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>
+        </svg>
+      </button>
     </div>
   </div>
   <nav class="tabs" role="tablist">
@@ -23,8 +44,10 @@
 </header>
 
 {% if db_error %}
-<div class="banner banner-error">
-  <strong>The database could not be opened.</strong> {{ db_error }}
+<div class="panel is-active" style="padding-bottom:0">
+  <div class="banner banner-error">
+    <strong>The database could not be opened.</strong> {{ db_error }}
+  </div>
 </div>
 {% endif %}
 
@@ -34,29 +57,27 @@
   <section class="card intro">
     <h2>Ask a question about the P-card data</h2>
     <p>
-      Type a question the way you would ask a colleague. The question is sent to
+      Type a question the way you would ask a colleague. The question goes to
       {% if nl_provider == 'gemini' %}Gemini{% elif nl_provider == 'anthropic' %}Claude{% else %}a
-      language model{% endif %}, which writes a
-      SQLite query against the transaction table; the server then runs that query in
-      <strong>read-only</strong> mode and shows you the answer <em>and</em> the query, so you
-      can check the logic before you rely on it. Nothing you do here can change the data.
-      Only the table definition and your question are sent to the model &mdash; no
-      transaction data leaves this server.
+      language model{% endif %}, which writes a SQLite query against the transaction table.
+      The server runs that query in <strong>read-only</strong> mode and shows you the answer
+      <em>and</em> the query, so you can check the logic before you rely on it. Nothing here
+      can change the data, and only the table definition and your question are sent to the
+      model &mdash; no transaction data leaves this server.
     </p>
     {% if not nl_enabled %}
     <p class="banner banner-warn">
       No model provider is configured on this server, so this tab cannot call a model. Set
-      <code>ANTHROPIC_API_KEY</code> or <code>GEMINI_API_KEY</code> and restart. The
+      <code>GEMINI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> and restart. The
       Prohibited purchases tab works without a key.
     </p>
     {% else %}
-    <p class="muted">Queries are written by <code>{{ nl_model }}</code>.</p>
-    {% endif %}
     <p class="muted">
-      A flagged transaction is a <em>potential</em> exception, never a proven one. Read the
-      explanation, check the query, and consider the legitimate explanations before you
-      follow up with a cardholder.
+      Queries are written by <code>{{ nl_model }}</code>. A flagged transaction is a
+      <em>potential</em> exception, never a proven one &mdash; read the explanation and check
+      the query before you follow up with a cardholder.
     </p>
+    {% endif %}
   </section>
 
   <section class="card">
@@ -67,40 +88,59 @@
       <div class="row">
         <button type="submit" class="btn btn-primary" id="ask-btn">Ask</button>
         <button type="button" class="btn" id="ask-clear">Clear</button>
+        <span class="muted"><span class="kbd">&#8984;</span> + <span class="kbd">&crarr;</span> to run</span>
+        <span class="grow"></span>
         <span class="muted" id="ask-status"></span>
       </div>
     </form>
 
     <div class="examples">
-      <span class="examples-label">Try one of these:</span>
+      <span class="examples-label">Start from a standard test</span>
       <button class="chip" data-example="Which 20 cardholders spent the most in 2014, and how many transactions did each make?">Top spenders 2014</button>
       <button class="chip" data-example="Show every 2014 transaction over $5,000 with the cardholder, vendor, description and MCC.">Over the $5,000 limit</button>
       <button class="chip" data-example="Which cardholders bought from the same vendor more than once on the same day in 2014 where the day's total was over $5,000?">Possible split purchases</button>
       <button class="chip" data-example="List the 25 merchant category codes with the most 2014 spend, with the number of transactions and the total.">Spend by merchant category</button>
       <button class="chip" data-example="Show 2014 transactions where the same cardholder, vendor, date and amount appear more than once.">Possible duplicate payments</button>
       <button class="chip" data-example="Which cardholders made purchases on a Saturday or Sunday in 2014 at merchants that are not hotels, airlines or restaurants?">Weekend purchasing</button>
+      <button class="chip" data-example="How many 2014 transactions fall between $4,500 and $4,999.99 compared with $5,000 to $5,499.99?">Structuring below the limit</button>
+      <button class="chip" data-example="Which cardholders spent more than $10,000 in a single month in 2014? Show the month and the total.">Over $10,000 in a month</button>
+    </div>
+
+    <div class="examples hidden" id="history-wrap">
+      <span class="examples-label">Your recent questions</span>
+      <div id="history"></div>
     </div>
   </section>
 
+  <div class="card banner-error hidden" id="ask-error"></div>
+
   <section id="ask-results" class="hidden">
-    <div class="card" id="ask-explain-card">
-      <h3>What this query does</h3>
-      <p id="ask-explanation"></p>
+    <div class="card">
+      <div class="result-head">
+        <h3>What this query does</h3>
+        <span class="pill hidden" id="ask-unanswerable">Not fully answerable from this table</span>
+      </div>
+      <p id="ask-explanation" style="margin:0; color:var(--ink-2); max-width:80ch"></p>
       <details id="ask-sql-wrap">
         <summary>Show the SQLite query that was run</summary>
         <pre id="ask-sql"></pre>
+        <div class="row">
+          <button type="button" class="btn btn-sm" id="copy-sql">Copy query</button>
+          <span class="muted" id="copy-status"></span>
+        </div>
       </details>
     </div>
     <div class="card">
       <div class="result-head">
         <h3>Result</h3>
-        <span class="muted" id="ask-rowcount"></span>
+        <div class="row">
+          <span class="muted" id="ask-rowcount"></span>
+          <button type="button" class="btn btn-sm" id="ask-csv">Export CSV</button>
+        </div>
       </div>
       <div class="table-scroll"><table id="ask-table"></table></div>
     </div>
   </section>
-
-  <div class="card banner-error hidden" id="ask-error"></div>
 </main>
 
 <!-- ================================================================== TAB 2 -->
@@ -110,45 +150,29 @@
     <h2>Prohibited-purchase dashboard</h2>
     <p><strong>How to use this dashboard</strong></p>
     <ol class="howto">
-      <li><strong>Choose the year</strong> you are auditing. The 2014 calendar year is the year
-          under audit; earlier years are available for trend work.</li>
-      <li><strong>Pick a prohibited category</strong> from the list below. Clicking a term loads it
-          into the search box it belongs to &mdash; description terms into the description search,
-          vendor terms into the vendor search &mdash; and runs the search.</li>
-      <li><strong>Or type your own keyword.</strong> Use the <em>description search</em> to look
-          inside the merchant's line detail (for example <code>gift card</code>), and the
-          <em>vendor search</em> to look at the merchant name (for example <code>postal</code>).
+      <li><strong>Choose the year</strong> you are auditing. 2014 is the year under audit;
+          earlier years are available for trend work.</li>
+      <li><strong>Pick a prohibited category</strong> below. Click a single term to search just
+          that word, or <strong>Search all terms</strong> to run every term in the category at
+          once. Description terms go to the description search, vendor terms to the vendor
+          search.</li>
+      <li><strong>Or type your own keyword.</strong> The <em>description search</em> looks inside
+          the merchant's line detail (for example <code>gift card</code>); the
+          <em>vendor search</em> looks at the merchant name (for example <code>postal</code>).
           Matching is case-insensitive and partial, so <code>liquor</code> also finds
           <code>PARKHILL'S WAREHOUSE LIQUOR</code>.</li>
       <li><strong>Set a minimum amount</strong> to push small, low-risk charges out of the way.</li>
+      <li><strong>Read the results</strong> &mdash; the month chart shows whether the hits cluster
+          in one period, and any charge over the $5,000 single-transaction limit is marked.
+          Sort any column by clicking its header.</li>
       <li><strong>Read the category note</strong> before you act. Every category has known false
           positives, and they are listed there.</li>
       <li><strong>Export to CSV</strong> to carry the population into your working papers.</li>
     </ol>
     <p class="muted">
       A hit is a lead, not a finding. Descriptions are supplied by the merchant, are often just
-      <code>GENERAL PURCHASE</code>, and cannot be relied on alone &mdash; obtain the receipt and the
-      business purpose recorded in Works before concluding that a purchase was prohibited.
-    </p>
-  </section>
-
-  <section class="card">
-    <h3>Prohibited purchases under the OSU P-card procedure</h3>
-    <div class="cats">
-      {% for c in categories %}
-      <div class="cat" data-key="{{ c.key }}">
-        <h4>{{ c.label }}</h4>
-        <div class="terms">
-          {% for t in c.description %}<button class="chip chip-desc" data-field="Description" data-term="{{ t }}" title="Search descriptions for “{{ t }}”">{{ t }}</button>{% endfor %}
-          {% for t in c.vendor %}<button class="chip chip-vend" data-field="Vendor" data-term="{{ t }}" title="Search vendor names for “{{ t }}”">{{ t }}</button>{% endfor %}
-        </div>
-        <p class="cat-note">{{ c.note }}</p>
-      </div>
-      {% endfor %}
-    </div>
-    <p class="legend">
-      <span class="swatch swatch-desc"></span> searches the <strong>description</strong>
-      <span class="swatch swatch-vend"></span> searches the <strong>vendor</strong>
+      <code>GENERAL PURCHASE</code>, and cannot be relied on alone &mdash; obtain the receipt and
+      the business purpose recorded in Works before concluding that a purchase was prohibited.
     </p>
   </section>
 
@@ -173,44 +197,86 @@
 
     <div class="searches">
       <form class="search-box search-desc" id="form-desc">
-        <h4><span class="swatch swatch-desc"></span> Description search</h4>
-        <p class="search-help">Searches the transaction <strong>description</strong> field &mdash;
-          the merchant's line detail. Use it for the <em>thing</em> that was bought:
-          <code>gift card</code>, <code>membership</code>, <code>award</code>, <code>late fee</code>.</p>
+        <h4><span class="swatch swatch-desc"></span>Description search</h4>
+        <p class="search-help">Searches the transaction <strong>description</strong> &mdash; the
+          merchant's line detail. Use it for the <em>thing</em> that was bought:
+          <code>gift card</code>, <code>membership</code>, <code>award</code>,
+          <code>late fee</code>.</p>
         <div class="row">
-          <input id="q-desc" type="search" placeholder="keyword in the description, e.g. gift card">
+          <input id="q-desc" type="search" placeholder="keyword in the description">
           <button type="submit" class="btn btn-primary">Search descriptions</button>
         </div>
       </form>
 
       <form class="search-box search-vend" id="form-vend">
-        <h4><span class="swatch swatch-vend"></span> Vendor search</h4>
-        <p class="search-help">Searches the <strong>vendor</strong> field &mdash; the merchant name on
-          the statement. Use it for the <em>place</em> money went:
+        <h4><span class="swatch swatch-vend"></span>Vendor search</h4>
+        <p class="search-help">Searches the <strong>vendor</strong> field &mdash; the merchant name
+          on the statement. Use it for the <em>place</em> money went:
           <code>postal</code>, <code>liquor</code>, <code>country club</code>.</p>
         <div class="row">
-          <input id="q-vend" type="search" placeholder="keyword in the vendor name, e.g. postal">
+          <input id="q-vend" type="search" placeholder="keyword in the vendor name">
           <button type="submit" class="btn btn-primary">Search vendors</button>
         </div>
       </form>
     </div>
   </section>
 
+  <div class="card banner-error hidden" id="search-error"></div>
+
   <section id="search-results" class="hidden">
     <div class="card">
       <div class="result-head">
         <h3 id="search-title">Results</h3>
         <div class="row">
-          <a class="btn" id="csv-link" href="#" download>Export CSV</a>
+          <a class="btn btn-sm" id="csv-link" href="#" download>Export CSV</a>
         </div>
       </div>
       <div class="stats" id="search-stats"></div>
-      <p class="muted" id="search-note"></p>
+      <div class="pill-row hidden" id="top-cardholders"></div>
+    </div>
+
+    <div class="card chart-card hidden" id="chart-card">
+      <div class="chart-head">
+        <h4 id="chart-title">Spend by month</h4>
+        <span class="muted" id="chart-note"></span>
+      </div>
+      <div class="chart-wrap">
+        <svg class="chart" id="chart" role="img" aria-labelledby="chart-title"></svg>
+        <div class="chart-tip" id="chart-tip"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="result-head">
+        <h3>Matching transactions</h3>
+        <span class="muted" id="search-note"></span>
+      </div>
       <div class="table-scroll"><table id="search-table"></table></div>
     </div>
   </section>
 
-  <div class="card banner-error hidden" id="search-error"></div>
+  <section class="card">
+    <h3>Prohibited purchases under the OSU P-card procedure</h3>
+    <div class="cats">
+      {% for c in categories %}
+      <div class="cat" data-key="{{ c.key }}">
+        <div class="cat-head">
+          <h4>{{ c.label }}</h4>
+          <button class="chip" data-all="{{ c.key }}" title="Run every term in this category">Search all terms</button>
+        </div>
+        <div class="terms">
+          {% for t in c.description %}<button class="chip chip-desc" data-field="Description" data-term="{{ t }}" title="Search descriptions for &ldquo;{{ t }}&rdquo;">{{ t }}</button>{% endfor %}
+          {% for t in c.vendor %}<button class="chip chip-vend" data-field="Vendor" data-term="{{ t }}" title="Search vendor names for &ldquo;{{ t }}&rdquo;">{{ t }}</button>{% endfor %}
+        </div>
+        <p class="cat-note">{{ c.note }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="legend">
+      <span class="swatch swatch-desc"></span>searches the <strong>description</strong>
+      <span class="swatch swatch-vend"></span>searches the <strong>vendor</strong>
+    </p>
+  </section>
 </main>
 
 <footer class="foot">
@@ -219,7 +285,8 @@
 </footer>
 
 <script>
-  window.CATEGORY_NOTES = {{ categories | map(attribute='key') | list | tojson }};
+  // Terms per category, so "Search all terms" can run them in one query.
+  window.CATEGORIES = {{ categories | tojson }};
 </script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

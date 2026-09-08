@@ -144,16 +144,30 @@ def available_years():
     return rows
 
 
-def search(field: str, keyword: str, year=None, min_amount=None, limit: int = MAX_ROWS):
-    """Keyword search over Description or Vendor, optionally restricted to a year."""
+MAX_TERMS = 24  # a whole prohibited-purchase category at once, with room to spare
+
+
+def _where(field: str, terms, year=None, min_amount=None):
+    """Build the shared WHERE clause and its bound parameters.
+
+    Several terms are OR-ed together, so one search can cover every term in a
+    prohibited-purchase category instead of one at a time.
+    """
     if field not in {"Description", "Vendor"}:
         raise QueryRejected("Search field must be Description or Vendor.")
-    keyword = (keyword or "").strip()
-    if not keyword:
-        raise QueryRejected("Enter a keyword to search for.")
 
-    where = ["UPPER(%s) LIKE ?" % field]
-    params = ["%" + keyword.upper() + "%"]
+    if isinstance(terms, str):
+        terms = [terms]
+    terms = [t.strip() for t in (terms or []) if t and t.strip()]
+    if not terms:
+        raise QueryRejected("Enter a keyword to search for.")
+    if len(terms) > MAX_TERMS:
+        raise QueryRejected("Too many search terms at once (limit %d)." % MAX_TERMS)
+
+    likes = " OR ".join("UPPER(%s) LIKE ?" % field for _ in terms)
+    where = ["(%s)" % likes]
+    params = ["%" + t.upper() + "%" for t in terms]
+
     if year:
         where.append("Year = ?")
         params.append(int(year))
@@ -161,22 +175,50 @@ def search(field: str, keyword: str, year=None, min_amount=None, limit: int = MA
         where.append("ABS(Amount) >= ?")
         params.append(float(min_amount))
 
-    clause = " AND ".join(where)
+    return " AND ".join(where), params, terms
+
+
+def search(field: str, keyword, year=None, min_amount=None, limit: int = MAX_ROWS):
+    """Keyword search over Description or Vendor, optionally restricted to a year.
+
+    `keyword` is one term or a list of terms; a list is OR-ed.
+    """
+    clause, params, terms = _where(field, keyword, year, min_amount)
 
     sql = ("SELECT %s FROM pcards WHERE %s ORDER BY ABS(Amount) DESC"
            % (RESULT_COLUMNS, clause))
     cols, rows, truncated = run_select(sql, params, limit=limit)
 
-    tot = connect().execute(
+    conn = connect()
+    tot = conn.execute(
         "SELECT COUNT(*) AS n, ROUND(SUM(Amount), 2) AS total, "
-        "COUNT(DISTINCT FullName) AS cardholders, COUNT(DISTINCT Vendor) AS vendors "
+        "COUNT(DISTINCT FullName) AS cardholders, COUNT(DISTINCT Vendor) AS vendors, "
+        "ROUND(MAX(ABS(Amount)), 2) AS largest, "
+        "SUM(CASE WHEN Amount > 5000 THEN 1 ELSE 0 END) AS over_limit, "
+        "SUM(CASE WHEN Amount < 0 THEN 1 ELSE 0 END) AS credits "
         "FROM pcards WHERE %s" % clause, params).fetchone()
+
+    # Spend per month over the whole matching population, not just the rows shown
+    # -- a concentration in one month is itself an audit signal.
+    months = conn.execute(
+        "SELECT Year, Month, COUNT(*) AS n, ROUND(SUM(Amount), 2) AS total "
+        "FROM pcards WHERE %s GROUP BY Year, Month ORDER BY Year, Month" % clause,
+        params).fetchall()
+
+    # The cardholders carrying the most of it, which is where follow-up starts.
+    top = conn.execute(
+        "SELECT FullName AS Cardholder, COUNT(*) AS n, ROUND(SUM(Amount), 2) AS total "
+        "FROM pcards WHERE %s GROUP BY FullName ORDER BY SUM(ABS(Amount)) DESC LIMIT 5"
+        % clause, params).fetchall()
 
     return {
         "columns": cols,
         "rows": rows,
         "truncated": truncated,
         "summary": dict(tot),
+        "monthly": [dict(r) for r in months],
+        "top_cardholders": [dict(r) for r in top],
+        "terms": terms,
         "sql": sql,
         "params": params,
     }

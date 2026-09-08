@@ -109,11 +109,12 @@ def api_ask():
 @app.get("/api/search")
 def api_search():
     field = request.args.get("field", "Description")
-    keyword = request.args.get("q", "")
+    # Repeated ?q= lets one search cover every term in a prohibited category.
+    keywords = request.args.getlist("q") or [request.args.get("q", "")]
     year = request.args.get("year") or None
     min_amount = request.args.get("min_amount") or None
     try:
-        result = pcard_db.search(field, keyword, year, min_amount)
+        result = pcard_db.search(field, keywords, year, min_amount)
         result["ok"] = True
         return jsonify(result)
     except pcard_db.QueryRejected as exc:
@@ -123,28 +124,51 @@ def api_search():
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+def _csv_response(columns, rows, filename):
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(columns)
+    for row in rows:
+        writer.writerow([row.get(c) for c in columns])
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="%s"' % filename},
+    )
+
+
 @app.get("/api/search.csv")
 def api_search_csv():
     """Same search, delivered as a CSV working paper."""
     field = request.args.get("field", "Description")
-    keyword = request.args.get("q", "")
+    keywords = request.args.getlist("q") or [request.args.get("q", "")]
     year = request.args.get("year") or None
     min_amount = request.args.get("min_amount") or None
-    result = pcard_db.search(field, keyword, year, min_amount, limit=50_000)
+    result = pcard_db.search(field, keywords, year, min_amount, limit=50_000)
 
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(result["columns"])
-    for row in result["rows"]:
-        writer.writerow([row[c] for c in result["columns"]])
+    slug = "".join(ch if ch.isalnum() else "_" for ch in "_".join(keywords))[:40] or "search"
+    return _csv_response(result["columns"], result["rows"],
+                         "pcard_%s_%s_%s.csv" % (field.lower(), slug, year or "all"))
 
-    slug = "".join(ch if ch.isalnum() else "_" for ch in keyword)[:40] or "search"
-    return Response(
-        buf.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition":
-                 'attachment; filename="pcard_%s_%s_%s.csv"' % (field.lower(), slug, year or "all")},
-    )
+
+@app.post("/api/ask.csv")
+def api_ask_csv():
+    """Export the result of a question the auditor already ran.
+
+    The query comes back from the browser rather than being re-generated, so the
+    CSV is the same population that was on screen. It goes through the same
+    read-only guard, so nothing here can be used to run something the Ask tab
+    would have refused.
+    """
+    payload = request.get_json(silent=True) or {}
+    sql = (payload.get("sql") or "").strip()
+    if not sql:
+        return jsonify({"ok": False, "error": "No query to export."}), 400
+    try:
+        columns, rows, _ = pcard_db.run_select(sql, limit=50_000)
+    except pcard_db.QueryRejected as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return _csv_response(columns, rows, "pcard_question_result.csv")
 
 
 @app.get("/api/health")

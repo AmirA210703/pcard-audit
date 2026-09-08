@@ -3,6 +3,15 @@
 Internal-audit analysis of OSU purchasing-card transactions for calendar year 2014, plus the
 auditor-facing web tool required by Part IV.
 
+| Deliverable | Link |
+|---|---|
+| **Live website** | https://pcard-audit-workbench.onrender.com |
+| **GitHub repository** | https://github.com/AmirA210703/pcard-audit |
+| **Completed assignment document** | [`Analytics_mindset_PCard_assignment_COMPLETED.docx`](Analytics_mindset_PCard_assignment_COMPLETED.docx) |
+
+The site is on Render's free plan, which sleeps after 15 minutes idle — the first request
+after a quiet spell takes about 40 seconds to wake, and is normal after that.
+
 Source data: `pcards.db` — one table, `pcards`, 489,178 rows covering 2010–2014
 (116,031 rows in 2014), all for agency 1000, Oklahoma State University. Cardholder names are
 de-identified in the source file.

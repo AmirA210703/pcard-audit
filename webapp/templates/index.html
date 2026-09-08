@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSU P-Card Audit Workbench</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark">P</span>
+    <div>
+      <h1>P-Card Audit Workbench</h1>
+      <p>Oklahoma State University &middot; internal audit &middot; <code>{{ db_name }}</code></p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" role="tab" data-tab="ask" aria-selected="true">Ask the data</button>
+    <button class="tab" role="tab" data-tab="prohibited" aria-selected="false">Prohibited purchases</button>
+  </nav>
+</header>
+
+{% if db_error %}
+<div class="banner banner-error">
+  <strong>The database could not be opened.</strong> {{ db_error }}
+</div>
+{% endif %}
+
+<!-- ================================================================== TAB 1 -->
+<main id="tab-ask" class="panel is-active" role="tabpanel">
+
+  <section class="card intro">
+    <h2>Ask a question about the P-card data</h2>
+    <p>
+      Type a question the way you would ask a colleague. The question is sent to
+      {% if nl_provider == 'gemini' %}Gemini{% elif nl_provider == 'anthropic' %}Claude{% else %}a
+      language model{% endif %}, which writes a
+      SQLite query against the transaction table; the server then runs that query in
+      <strong>read-only</strong> mode and shows you the answer <em>and</em> the query, so you
+      can check the logic before you rely on it. Nothing you do here can change the data.
+      Only the table definition and your question are sent to the model &mdash; no
+      transaction data leaves this server.
+    </p>
+    {% if not nl_enabled %}
+    <p class="banner banner-warn">
+      No model provider is configured on this server, so this tab cannot call a model. Set
+      <code>ANTHROPIC_API_KEY</code> or <code>GEMINI_API_KEY</code> and restart. The
+      Prohibited purchases tab works without a key.
+    </p>
+    {% else %}
+    <p class="muted">Queries are written by <code>{{ nl_model }}</code>.</p>
+    {% endif %}
+    <p class="muted">
+      A flagged transaction is a <em>potential</em> exception, never a proven one. Read the
+      explanation, check the query, and consider the legitimate explanations before you
+      follow up with a cardholder.
+    </p>
+  </section>
+
+  <section class="card">
+    <form id="ask-form">
+      <label class="field-label" for="question">Your question</label>
+      <textarea id="question" name="question" rows="3"
+        placeholder="e.g. Which cardholders had more than five transactions between $4,500 and $5,000 in 2014?"></textarea>
+      <div class="row">
+        <button type="submit" class="btn btn-primary" id="ask-btn">Ask</button>
+        <button type="button" class="btn" id="ask-clear">Clear</button>
+        <span class="muted" id="ask-status"></span>
+      </div>
+    </form>
+
+    <div class="examples">
+      <span class="examples-label">Try one of these:</span>
+      <button class="chip" data-example="Which 20 cardholders spent the most in 2014, and how many transactions did each make?">Top spenders 2014</button>
+      <button class="chip" data-example="Show every 2014 transaction over $5,000 with the cardholder, vendor, description and MCC.">Over the $5,000 limit</button>
+      <button class="chip" data-example="Which cardholders bought from the same vendor more than once on the same day in 2014 where the day's total was over $5,000?">Possible split purchases</button>
+      <button class="chip" data-example="List the 25 merchant category codes with the most 2014 spend, with the number of transactions and the total.">Spend by merchant category</button>
+      <button class="chip" data-example="Show 2014 transactions where the same cardholder, vendor, date and amount appear more than once.">Possible duplicate payments</button>
+      <button class="chip" data-example="Which cardholders made purchases on a Saturday or Sunday in 2014 at merchants that are not hotels, airlines or restaurants?">Weekend purchasing</button>
+    </div>
+  </section>
+
+  <section id="ask-results" class="hidden">
+    <div class="card" id="ask-explain-card">
+      <h3>What this query does</h3>
+      <p id="ask-explanation"></p>
+      <details id="ask-sql-wrap">
+        <summary>Show the SQLite query that was run</summary>
+        <pre id="ask-sql"></pre>
+      </details>
+    </div>
+    <div class="card">
+      <div class="result-head">
+        <h3>Result</h3>
+        <span class="muted" id="ask-rowcount"></span>
+      </div>
+      <div class="table-scroll"><table id="ask-table"></table></div>
+    </div>
+  </section>
+
+  <div class="card banner-error hidden" id="ask-error"></div>
+</main>
+
+<!-- ================================================================== TAB 2 -->
+<main id="tab-prohibited" class="panel" role="tabpanel">
+
+  <section class="card intro">
+    <h2>Prohibited-purchase dashboard</h2>
+    <p><strong>How to use this dashboard</strong></p>
+    <ol class="howto">
+      <li><strong>Choose the year</strong> you are auditing. The 2014 calendar year is the year
+          under audit; earlier years are available for trend work.</li>
+      <li><strong>Pick a prohibited category</strong> from the list below. Clicking a term loads it
+          into the search box it belongs to &mdash; description terms into the description search,
+          vendor terms into the vendor search &mdash; and runs the search.</li>
+      <li><strong>Or type your own keyword.</strong> Use the <em>description search</em> to look
+          inside the merchant's line detail (for example <code>gift card</code>), and the
+          <em>vendor search</em> to look at the merchant name (for example <code>postal</code>).
+          Matching is case-insensitive and partial, so <code>liquor</code> also finds
+          <code>PARKHILL'S WAREHOUSE LIQUOR</code>.</li>
+      <li><strong>Set a minimum amount</strong> to push small, low-risk charges out of the way.</li>
+      <li><strong>Read the category note</strong> before you act. Every category has known false
+          positives, and they are listed there.</li>
+      <li><strong>Export to CSV</strong> to carry the population into your working papers.</li>
+    </ol>
+    <p class="muted">
+      A hit is a lead, not a finding. Descriptions are supplied by the merchant, are often just
+      <code>GENERAL PURCHASE</code>, and cannot be relied on alone &mdash; obtain the receipt and the
+      business purpose recorded in Works before concluding that a purchase was prohibited.
+    </p>
+  </section>
+
+  <section class="card">
+    <h3>Prohibited purchases under the OSU P-card procedure</h3>
+    <div class="cats">
+      {% for c in categories %}
+      <div class="cat" data-key="{{ c.key }}">
+        <h4>{{ c.label }}</h4>
+        <div class="terms">
+          {% for t in c.description %}<button class="chip chip-desc" data-field="Description" data-term="{{ t }}" title="Search descriptions for “{{ t }}”">{{ t }}</button>{% endfor %}
+          {% for t in c.vendor %}<button class="chip chip-vend" data-field="Vendor" data-term="{{ t }}" title="Search vendor names for “{{ t }}”">{{ t }}</button>{% endfor %}
+        </div>
+        <p class="cat-note">{{ c.note }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="legend">
+      <span class="swatch swatch-desc"></span> searches the <strong>description</strong>
+      <span class="swatch swatch-vend"></span> searches the <strong>vendor</strong>
+    </p>
+  </section>
+
+  <section class="card">
+    <div class="controls">
+      <div class="control">
+        <label class="field-label" for="year">Year to search</label>
+        <select id="year">
+          <option value="">All years</option>
+          {% for y in years %}
+          <option value="{{ y.Year }}" {% if y.Year == 2014 %}selected{% endif %}>
+            {{ y.Year }} &mdash; {{ '{:,}'.format(y.Transactions) }} transactions
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="control">
+        <label class="field-label" for="min-amount">Minimum amount ($)</label>
+        <input id="min-amount" type="number" min="0" step="50" placeholder="0">
+      </div>
+    </div>
+
+    <div class="searches">
+      <form class="search-box search-desc" id="form-desc">
+        <h4><span class="swatch swatch-desc"></span> Description search</h4>
+        <p class="search-help">Searches the transaction <strong>description</strong> field &mdash;
+          the merchant's line detail. Use it for the <em>thing</em> that was bought:
+          <code>gift card</code>, <code>membership</code>, <code>award</code>, <code>late fee</code>.</p>
+        <div class="row">
+          <input id="q-desc" type="search" placeholder="keyword in the description, e.g. gift card">
+          <button type="submit" class="btn btn-primary">Search descriptions</button>
+        </div>
+      </form>
+
+      <form class="search-box search-vend" id="form-vend">
+        <h4><span class="swatch swatch-vend"></span> Vendor search</h4>
+        <p class="search-help">Searches the <strong>vendor</strong> field &mdash; the merchant name on
+          the statement. Use it for the <em>place</em> money went:
+          <code>postal</code>, <code>liquor</code>, <code>country club</code>.</p>
+        <div class="row">
+          <input id="q-vend" type="search" placeholder="keyword in the vendor name, e.g. postal">
+          <button type="submit" class="btn btn-primary">Search vendors</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="search-results" class="hidden">
+    <div class="card">
+      <div class="result-head">
+        <h3 id="search-title">Results</h3>
+        <div class="row">
+          <a class="btn" id="csv-link" href="#" download>Export CSV</a>
+        </div>
+      </div>
+      <div class="stats" id="search-stats"></div>
+      <p class="muted" id="search-note"></p>
+      <div class="table-scroll"><table id="search-table"></table></div>
+    </div>
+  </section>
+
+  <div class="card banner-error hidden" id="search-error"></div>
+</main>
+
+<footer class="foot">
+  Read-only audit tool. Cardholder names are de-identified in the source data.
+  Flagged transactions are potential exceptions requiring follow-up, not established violations.
+</footer>
+
+<script>
+  window.CATEGORY_NOTES = {{ categories | map(attribute='key') | list | tojson }};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

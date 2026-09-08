@@ -1,0 +1,37 @@
+# Render blueprint for the P-Card Audit Workbench.
+#
+# Render reads this when you create a service from the repository, so the build
+# and start commands do not have to be typed into the dashboard.
+#
+# The API key is deliberately NOT here.  `sync: false` means "ask me for this
+# value in the dashboard and keep it as a secret" -- it is stored by Render and
+# injected as an environment variable at run time, so it never enters the
+# repository or the build log.
+services:
+  - type: web
+    name: pcard-audit-workbench
+    runtime: python
+    plan: free
+    region: frankfurt
+    rootDir: webapp
+
+    # scripts/prepare_db.py expands data/pcards.db.gz (24 MB in git) into the
+    # full ~115 MB database during the build, so the running service has the
+    # evidence file locally and needs no volume or external download.
+    buildCommand: pip install -r requirements.txt && python ../scripts/prepare_db.py
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 app:app
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # Where prepare_db.py puts the expanded database. It must be the same at
+      # build time and run time, and must be inside the deploy, not /tmp.
+      - key: PCARD_DB
+        value: /opt/render/project/src/data/pcards.db
+
+      # The secret. Set the value in the Render dashboard, never in this file.
+      - key: GEMINI_API_KEY
+        sync: false

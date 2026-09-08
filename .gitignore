@@ -1,0 +1,25 @@
+# --- secrets: never commit -------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+
+# --- data ------------------------------------------------------------------
+# The expanded database is ~115 MB; too big for git and rebuilt on demand from
+# the compressed copy, so only the .gz is tracked.
+*.db
+*.sqlite
+*.sqlite3
+!data/pcards.db.gz
+results/*.csv
+
+# --- python ----------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# --- os --------------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/

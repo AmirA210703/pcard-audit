@@ -1,0 +1,6 @@
+Flask>=3.0
+gunicorn>=21.2
+
+# You need ONE model provider. Install whichever key you have; both is fine.
+anthropic>=0.40        # for ANTHROPIC_API_KEY  (Claude)
+google-genai>=1.40,<2  # for GEMINI_API_KEY     (Gemini, has a free tier)

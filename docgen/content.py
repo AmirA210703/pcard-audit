@@ -545,19 +545,25 @@ T3_RESULTS = {
 PART4_WEBSITE = "https://pcard-audit-workbench.onrender.com"
 PART4_GITHUB = "https://github.com/AmirA210703/pcard-audit"
 
+# Shown under the title on the first page and written to the file's author field.
+STUDENT_NAME = "Amir Arnautovic"
+
 PART4_NOTE = [
  "Part IV — what was built",
  "The P-Card Audit Workbench is a two-tab Flask application deployed at "
  + PART4_WEBSITE + ", with the source at " + PART4_GITHUB + ". It is served on a free "
  "hosting plan that suspends the service after 15 minutes of inactivity, so the first "
- "request after an idle period takes roughly 40 seconds while the instance restarts; "
- "subsequent questions answer in one to three seconds.",
+ "request after an idle period takes roughly 40 seconds while the instance restarts.",
 
  "Tab 1 — Ask the data. The auditor types a question in plain language. The question and "
  "the table definition, and nothing else, are sent to a language model, which returns a "
  "single SQLite SELECT. The server executes that query itself and displays the result "
  "together with the query and a plain-language explanation, so the logic can be checked "
- "before the answer is relied upon. No transaction data is ever sent to the model. Three "
+ "before the answer is relied upon. No transaction data is ever sent to the model. "
+ "Free-tier model capacity varies by the hour, so the server does not depend on one model: "
+ "a model that is busy hands over to the next at once, a slow one is raced against the next "
+ "after four seconds, and the model that answered last is tried first on the next question. "
+ "Three "
  "of the assignment's own tests were reproduced through this tab as a check on the "
  "translation: 457 cardholder-months over $10,000 (Control 2), 33 transactions over "
  "$5,000 (Control 3), and 269 charges between $4,500 and $4,999.99 (Part III Question 5).",

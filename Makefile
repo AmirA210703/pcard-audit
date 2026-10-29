@@ -21,6 +21,7 @@ DOCX ?= $(dir $(CURDIR:/=))Assignment PCARDS/Analytics_mindset_case_studies_PCar
 
 doc:
 	PCARD_DOCX="$(DOCX)" $(PY) docgen/build_doc.py
+	$(PY) docgen/finalize.py
 
 web:
 	cd webapp && PCARD_DB="$(DB)" $(PY) app.py

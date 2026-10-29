@@ -3,7 +3,8 @@
    indicate personal use.
    Test: 2014 transactions at membership-club, spa, golf, recreation and personal-service
    MCCs, ranked by amount.  General "MEMBERSHIP ORGANIZATIONS" (professional associations,
-   which are usually institutional and allowable) is reported separately. */
+   which are usually institutional and allowable) is left out of the MCC list; a row with
+   that MCC is returned only if its description mentions a membership or dues. */
 SELECT p.FullName        AS Name,
        p.Amount,
        p.Vendor,

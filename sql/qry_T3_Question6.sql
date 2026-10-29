@@ -2,10 +2,15 @@
    Fraud risk / hypothesis: P-card purchases made when the University is closed are less
    likely to have been pre-approved by the department and are a recognised indicator of
    personal use of a business card.
-   Test: 2014 positive transactions dated on a Saturday, a Sunday or a 2014 federal holiday.
+   Test: 2014 positive transactions dated on a Saturday, a Sunday or one of ten 2014 holiday
+   closure dates (New Year's Day, Martin Luther King Jr. Day, Memorial Day, Independence Day,
+   Labor Day, Thanksgiving and the day after, Christmas Eve, Christmas Day, New Year's Eve).
    To keep the population meaningful, merchant categories where weekend activity is expected
-   and legitimate (lodging, airlines, car rental, restaurants, fuel, tolls) are excluded, and
-   only cardholders with at least five such charges are reported. */
+   and legitimate (lodging, airlines, car rental, restaurants, caterers, fuel, tolls, taxis,
+   parking, transport and travel agencies) are excluded, and only cardholders with at least
+   five such charges are reported.  The airline and restaurant patterns are written narrowly
+   so that they do not also remove HVAC contractors, repair shops or plumbing-and-heating
+   suppliers, whose MCCs contain the letters AIR and EATING. */
 WITH parsed AS (
     SELECT p.*,
            substr(p.TransactionDate, 1, instr(p.TransactionDate, '/') - 1) AS m_raw,
@@ -39,10 +44,12 @@ non_travel AS (
     WHERE MCC NOT LIKE '%HOTEL%'   AND MCC NOT LIKE '%MOTEL%'
       AND MCC NOT LIKE '%INN%'     AND MCC NOT LIKE '%RESORT%'
       AND MCC NOT LIKE '%LODGING%' AND MCC NOT LIKE '%SUITES%'
-      AND MCC NOT LIKE '%AIRLINE%' AND MCC NOT LIKE '%AIR%'
+      AND MCC NOT LIKE '%AIRLINE%' AND MCC NOT LIKE '%AIRWAY%'
+      AND MCC NOT LIKE '%AIRWYS%'  AND MCC NOT LIKE 'AIR %'
+      AND MCC NOT LIKE '% AIR'
       AND MCC NOT LIKE '%CAR RENTAL%' AND MCC NOT LIKE '%AUTOMOBILE RENTAL%'
-      AND MCC NOT LIKE '%RESTAURANT%' AND MCC NOT LIKE '%EATING%'
-      AND MCC NOT LIKE '%FOOD%'    AND MCC NOT LIKE '%CATER%'
+      AND MCC NOT LIKE '%RESTAURANT%' AND MCC NOT LIKE 'EATING PLACES%'
+      AND MCC NOT LIKE '%CATER%'
       AND MCC NOT LIKE '%SERVICE STATION%' AND MCC NOT LIKE '%FUEL%'
       AND MCC NOT LIKE '%TOLL%'    AND MCC NOT LIKE '%TAXI%'
       AND MCC NOT LIKE '%TRANSPORTATION%' AND MCC NOT LIKE '%TRAVEL%'

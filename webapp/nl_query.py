@@ -19,6 +19,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import pcard_db
 
@@ -33,7 +36,7 @@ MAX_TOKENS = 8000
 
 # Free-tier capacity moves around, so a busy model is retried on the next name
 # here rather than failing the auditor's question.  GEMINI_MODEL is tried first,
-# whatever it is set to.
+# whatever it is set to, then the fast "lite" models, then the larger ones.
 #
 # Measured on this exact workload (the schema prompt plus a real question):
 # 3.5-flash-lite answered in 1.4 s using 1,421 tokens, 3.7-flash in 3.5 s using
@@ -44,15 +47,28 @@ MAX_TOKENS = 8000
 #   * the whole 2.5 series -- 404 "no longer available to new users"
 GEMINI_FALLBACKS = [
     "gemini-3.5-flash-lite",
-    "gemini-3.7-flash",
     "gemini-3.1-flash-lite",
+    "gemini-3.7-flash",
     "gemini-3.5-flash",
 ]
 
-# Per attempt, in milliseconds.  Four candidates at this ceiling stay inside the
-# ~100 s a hosting proxy allows before it returns its own error page -- which
-# would reach the browser as HTML rather than JSON.
-GEMINI_TIMEOUT_MS = 15_000
+# Per attempt, in milliseconds.  The SDK also sends this to Google as the
+# server-side deadline, so a model that is stuck in a queue ends with a 504.
+GEMINI_TIMEOUT_MS = 20_000
+
+# A healthy model answers in 1-4 s.  If the current attempt has not answered
+# after HEDGE_AFTER_S, the next model is started alongside it and whichever
+# answers first wins -- a slow model no longer holds the question hostage.
+HEDGE_AFTER_S = float(os.environ.get("AI_HEDGE_AFTER_S", "4"))
+
+# The whole question gives up after this, well inside the ~100 s a hosting
+# proxy allows before it returns its own HTML error page instead of our JSON.
+TOTAL_DEADLINE_S = float(os.environ.get("AI_TOTAL_DEADLINE_S", "45"))
+
+# A model that just failed is moved to the back of the queue for this long, and
+# the model that answered last is tried first, so only the first question after
+# an outage pays for discovering it.
+COOLDOWN_S = float(os.environ.get("AI_COOLDOWN_S", "300"))
 
 
 # Values left over from .env.example. Treated as "not set" so that the user gets a
@@ -97,14 +113,97 @@ def _transient(exc) -> bool:
     return any(token in text for token in _TRY_ANOTHER_MODEL)
 
 
+# Per worker process: model -> time until which it counts as unhealthy, and the
+# model that answered most recently.
+_health_lock = threading.Lock()
+_cooling_until: dict[str, float] = {}
+_last_good: list[str] = []
+
+
+def _mark_failed(model):
+    with _health_lock:
+        _cooling_until[model] = time.monotonic() + COOLDOWN_S
+        if _last_good and _last_good[0] == model:
+            _last_good.clear()
+
+
+def _mark_ok(model):
+    with _health_lock:
+        _cooling_until.pop(model, None)
+        _last_good[:] = [model]
+
+
 def _gemini_candidates():
-    """GEMINI_MODEL first, then the fallbacks, without repeats."""
+    """The order to try models in for this question.
+
+    The last model that answered goes first, then GEMINI_MODEL and the fallbacks
+    in their configured order.  Models that failed within COOLDOWN_S are not
+    dropped -- they go to the back, as a last resort.
+    """
     seen, out = set(), []
-    for name in [GEMINI_MODEL] + GEMINI_FALLBACKS:
+    with _health_lock:
+        preferred = list(_last_good)
+        cooling = {m for m, until in _cooling_until.items() if until > time.monotonic()}
+    for name in preferred + [GEMINI_MODEL] + GEMINI_FALLBACKS:
         if name and name not in seen:
             seen.add(name)
             out.append(name)
-    return out
+    return [m for m in out if m not in cooling] + [m for m in out if m in cooling]
+
+
+def _race(candidates, attempt):
+    """Run `attempt(model)` down the candidate list and return the first success.
+
+    The next candidate is started as soon as the current one fails, or after
+    HEDGE_AFTER_S if it is merely slow; earlier attempts keep running, so a slow
+    model that does answer can still win.  An error that another model would
+    not fix (a bad key, a malformed request) is raised at once.
+    """
+    queue = list(candidates)
+    pending = {}
+    last = None
+    deadline = time.monotonic() + TOTAL_DEADLINE_S
+    pool = ThreadPoolExecutor(max_workers=len(queue))
+
+    def launch():
+        model = queue.pop(0)
+        pending[pool.submit(attempt, model)] = model
+        return model
+
+    try:
+        newest = launch()
+        while pending:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            done, _ = wait(pending, return_when=FIRST_COMPLETED,
+                           timeout=min(HEDGE_AFTER_S, remaining) if queue else remaining)
+            if not done:
+                if queue:
+                    # Too slow to be first choice for the next question either.
+                    _mark_failed(newest)
+                    newest = launch()
+                continue
+            for future in done:
+                model = pending.pop(future)
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    if not (_model_not_found(exc) or _transient(exc)):
+                        raise
+                    last = exc
+                    if queue:
+                        newest = launch()
+                    continue
+                _mark_ok(model)
+                return result
+    finally:
+        # Abandoned attempts finish on their own within GEMINI_TIMEOUT_MS.
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    if last is None:
+        last = TimeoutError("timed out: no model answered within %.0f s" % TOTAL_DEADLINE_S)
+    raise last
 
 
 def _gemini_key():
@@ -322,17 +421,24 @@ def _ask_anthropic(question: str, history=None) -> str:
         messages=_messages(question, history),
     )
     try:
-        response = client.messages.create(
-            output_config={"format": {"type": "json_schema", "schema": RESPONSE_SCHEMA}},
-            **kwargs
-        )
-    except TypeError:
-        # Older anthropic SDK without output_config -- ask for JSON in the prompt.
-        kwargs["system"] += (
-            '\n\nReply with a single JSON object and nothing else: '
-            '{"sql": "...", "explanation": "...", "answerable": true}'
-        )
-        response = client.messages.create(**kwargs)
+        try:
+            response = client.messages.create(
+                output_config={"format": {"type": "json_schema", "schema": RESPONSE_SCHEMA}},
+                **kwargs
+            )
+        except TypeError:
+            # Older anthropic SDK without output_config -- ask for JSON in the prompt.
+            kwargs["system"] += (
+                '\n\nReply with a single JSON object and nothing else: '
+                '{"sql": "...", "explanation": "...", "answerable": true}'
+            )
+            response = client.messages.create(**kwargs)
+    except Exception as exc:
+        # Overloaded / rate-limited: reported as Unavailable so that to_sql() can
+        # hand the question to the other provider if one is configured.
+        if _transient(exc) or "529" in str(exc):
+            raise Unavailable("Claude is busy right now: %s" % exc) from exc
+        raise
 
     text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
     return text, ANTHROPIC_MODEL
@@ -398,23 +504,29 @@ def _ask_gemini(question: str, history=None) -> str:
             # _parse() is tolerant and pcard_db.guard() is the real safety net.
             return _call(model, base)
 
-    candidates = _gemini_candidates()
-    last = None
-    for model in candidates:
+    def _attempt(model):
+        # Failures are recorded here, in the worker thread, so that an attempt
+        # the race has already given up on still marks its model when it ends.
+        # Success is recorded by _race(), and only for the answer it used.
         try:
             response = _one_model(model)
         except Exception as exc:
-            # A model that is missing or busy is worth trying the next name for;
-            # anything else (a bad key, a malformed request) is not.
             if _model_not_found(exc) or _transient(exc):
-                last = exc
-                continue
+                _mark_failed(model)
             raise
         return (response.text or ""), model
 
+    candidates = _gemini_candidates()
+    try:
+        return _race(candidates, _attempt)
+    except Exception as exc:
+        if not (_model_not_found(exc) or _transient(exc)):
+            raise
+        last = exc
+
     # Every candidate failed the same way, so report the underlying cause plainly
     # rather than as a generic 502.
-    if last is not None and _transient(last):
+    if _transient(last):
         raise Unavailable(
             "Gemini had no capacity for any of the models tried (%s). Google returns "
             "this when the free tier is busy; it is usually temporary, so wait a "
@@ -430,15 +542,27 @@ def _ask_gemini(question: str, history=None) -> str:
 
 
 _BACKENDS = {"anthropic": _ask_anthropic, "gemini": _ask_gemini}
+_KEYS = {"anthropic": _anthropic_key, "gemini": _gemini_key}
 
 
 def to_sql(question: str, history=None) -> dict:
-    """Ask the configured provider for a query. Returns sql / explanation / answerable."""
+    """Ask the configured provider for a query. Returns sql / explanation / answerable.
+
+    When keys for both providers are set and the chosen one has no capacity,
+    the question goes to the other one instead of failing.
+    """
     name = provider()
     if name is None:
         raise NotConfigured(_NO_KEY)
 
-    text, used_model = _BACKENDS[name](question, history)
+    order = [name] + [other for other in _BACKENDS if other != name and _KEYS[other]()]
+    for i, name in enumerate(order):
+        try:
+            text, used_model = _BACKENDS[name](question, history)
+            break
+        except Unavailable:
+            if i == len(order) - 1:
+                raise
     data = _parse(text)
 
     return {

@@ -1,8 +1,9 @@
 /* qry_T2_Question10 -- Control 10 (student-defined): Mail and postage are prohibited; all
    U.S. mail (incl. parcel post, certified, registered) must go through University Mailing.
    Test: 2014 transactions at postal MCCs or postal/postage-meter vendors.  Commercial
-   couriers (FedEx/UPS freight) are reported separately because inbound freight on a
-   purchase is normally allowable, whereas outbound mail is not. */
+   couriers (FedEx/UPS freight) are not selected, because inbound freight on a purchase is
+   normally allowable, whereas outbound mail is not; the 'Commercial courier' label in
+   FlagBasis is kept only so the test can be widened to courier vendors later. */
 SELECT p.FullName        AS Name,
        p.Amount,
        p.Vendor,

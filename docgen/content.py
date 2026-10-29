@@ -86,12 +86,14 @@ T2_RESULTS = {
  "they account for $15,527,124 of the $33,504,148 charged on P-Cards that year (46%). Thirty-nine "
  "cardholders exceeded $100,000. The largest is Employee 51914657 at $1,595,302.32 across 3,510 "
  "transactions, followed by Employee B1FA2F0D ($1,182,094.86) and Employee 688E3D92 ($627,608.56).",
- "Conclusion: the $50,000 ceiling in the procedure is a per-cycle credit limit, not an annual cap, "
- "so spending more than $50,000 across twelve cycles is not by itself a violation — several of "
- "these cardholders are clearly central facilities and maintenance buyers, and the transaction "
- "counts support that. The exception worth pursuing is the cardholder whose annual volume is far "
- "larger than any approved cycle limit could support: at $1.6m, Employee 51914657 averages "
- "$132,942 per month, which no compliant limit permits.",
+ "Conclusion: measured against the control as stated — no more than $50,000 per cardholder "
+ "per year — all 127 cardholders are exceptions, together accounting for $15.5m of spend. "
+ "One caveat affects how they should be followed up: the procedure in Part I expresses $50,000 as "
+ "the maximum cycle credit limit, so some of these cardholders may hold approved limits that make "
+ "high annual volume legitimate, and several are clearly central facilities and maintenance "
+ "buyers, which the transaction counts support. That caveat does not cover the largest cases: at "
+ "$1.6m, Employee 51914657 averages $132,942 per month, which exceeds even the maximum cycle limit "
+ "and which no compliant limit permits.",
  "Follow-up: obtain the approved single-transaction and cycle limits from each of the 127 P-Card "
  "application forms and compare them with actual usage; this population is also the natural input "
  "to the annual Cardholder Limit Recertification required by the procedure.",
@@ -114,17 +116,20 @@ T2_RESULTS = {
 ],
 3: [
  "Result: only 33 transactions exceeded $5,000 in 2014, totalling $357,870.91, and they belong to "
- "just six cardholders. The largest is $29,731.61 (OEC Otis Elevator Co). By contrast there are 20 "
- "transactions at exactly $5,000.00 and 113 between $4,900 and $5,000.",
+ "just six cardholders. The largest is $29,731.61 (OEC Otis Elevator Co). By contrast there are 113 "
+ "transactions between $4,900 and $5,000.00, 20 of them at exactly $5,000.00.",
  "Conclusion: the single-transaction limit is enforced at the point of sale, which is why so few "
  "transactions clear it — each of the 33 implies that a limit was temporarily raised, so each "
- "one should have approval documentation behind it. Two cardholders dominate: Employee 0E3DD9FC "
- "(conference lodging and group air travel — room blocks and charter-type charges, plausibly "
- "legitimate but requiring an exception) and Employee 302B04AF, whose $19,233.28 and $5,688.46 "
- "charges at COCKRELL EYECARE CENTER, an optician, have no obvious University business purpose.",
+ "one should have approval documentation behind it. Two cardholders dominate. Employee 302B04AF "
+ "holds 14 of the 33: eleven hotel charges between $5,101.20 and $11,643.75, a $5,758.35 charge "
+ "at SMC-PATIENT FINANCIAL SRV (a medical-services merchant) and two charges of $19,233.28 and "
+ "$5,688.46 at COCKRELL EYECARE CENTER, an optician. The hotel charges may be group lodging, but "
+ "the medical and optician charges have no obvious University business purpose. Employee 0E3DD9FC "
+ "holds 12, mostly conference lodging, group air travel, catering and convention services "
+ "— plausibly legitimate, but each still requires an approved exception.",
  "Follow-up: obtain the approved limit-increase request for each of the 33 transactions, and treat "
- "the two Cockrell Eyecare charges as a priority investigation — the same cardholder also "
- "appears in Control 12 with $8,545 of spa charges.",
+ "the Cockrell Eyecare and SMC-Patient Financial charges as a priority investigation — the same "
+ "cardholder also appears in Control 12 with five spa charges totalling $8,020.00.",
 ],
 4: [
  "Result: 254 transactions fall into 66 cardholder / vendor / day clusters where the same "
@@ -132,8 +137,9 @@ T2_RESULTS = {
  "total exceeded $5,000. Thirty cardholders are involved and $470,368.63 is at stake. The largest "
  "clusters are Employee CEFFB0FE with 11 swipes at DOUBLETREE HOTEL BETHESDA on 22 May 2014 "
  "($21,020.26), Employee 7A1AD2BE with 2 swipes at HILTON BOSTON DOWNTOWN ($15,326.88) and Employee "
- "6A680974 with 7 swipes at VETERANS AFFRS DMC on 17 October ($12,976.96) and 11 swipes on 24 "
- "February ($7,490.94).",
+ "6A680974 at VETERANS AFFRS DMC, who has eight clusters there — the largest are 7 swipes on 17 "
+ "October ($12,976.96), 5 on 23 October ($12,658.72) and 6 on 15 October ($10,937.06), and the "
+ "most frequent is 11 swipes on 24 February ($7,490.94).",
  "Conclusion: multiple same-day charges at one vendor are not automatically a split purchase. "
  "Hotel clusters are usually one folio per traveller in a group booking, and the supply-house "
  "clusters (Rexel, Oklahoma Contractors Supply, Economy Supply) are consistent with separate work "
@@ -147,18 +153,20 @@ T2_RESULTS = {
 5: [
  "Result: 24 vendor-days meet the test — 48 transactions, 38 cardholders and $146,966.52 "
  "— where a vendor took more than $5,000 in one day from exactly two cardholders, each of whom "
- "made exactly one charge. Three are near-certain splits because both cardholders paid an identical "
- "amount: PAYPAL FUTUREBUS on 15 May, 2 × $4,014.90 = $8,029.80; B & H PHOTO-VIDEO.COM on 13 "
- "February, 2 × $2,544.07 = $5,088.14, both described as “EOS 6D DIGITAL CAM”; and "
- "SHAKE RATTLE AND ROLL on 28 May, $4,979.00 + $4,959.00 = $9,938.00.",
+ "made exactly one charge. Two are near-certain splits because both cardholders paid an identical "
+ "amount: PAYPAL FUTUREBUS on 15 May, 2 × $4,014.90 = $8,029.80; and B & H PHOTO-VIDEO.COM on 13 "
+ "February, 2 × $2,544.07 = $5,088.14, both described as “EOS 6D DIGITAL CAM”. A third "
+ "is almost as strong: SHAKE RATTLE AND ROLL on 28 May, $4,979.00 + $4,959.00 = $9,938.00, two "
+ "near-identical amounts each just below the $5,000 limit.",
  "Conclusion: the B & H case is the clearest control breach in this test — two identical "
  "camera kits bought the same day by two cardholders from one vendor is a single known quantity of "
- "goods divided between two cards, exactly the example the procedure gives. The PayPal and "
- "entertainment pairs share the same signature. The remaining pairs, where one leg is small (for "
- "example $4,999.35 + $503.04 at The Lee Company), are more likely to be two departments coinciding "
- "at a common supplier.",
- "Follow-up: interview both cardholders and both approvers for the three identical-amount pairs, "
- "and confirm whether the two camera bodies were part of one requisition that should have been bid.",
+ "goods divided between two cards, exactly the example the procedure gives. The PayPal pair shares "
+ "the same signature, and the entertainment pair, with legs $20 apart and both within $41 of the "
+ "limit, looks like one booking priced to fit two cards. The remaining pairs, where one leg is "
+ "small (for example $4,999.35 + $503.04 at The Lee Company), are more likely to be two departments "
+ "coinciding at a common supplier.",
+ "Follow-up: interview both cardholders and both approvers for these three pairs, and confirm "
+ "whether the two camera bodies were part of one requisition that should have been bid.",
 ],
 6: [
  "Result: 59 cardholder-days meet the test — 118 transactions, 48 cardholders and $368,166.79 "
@@ -226,13 +234,14 @@ T2_RESULTS = {
 10: [
  "Result: 89 transactions worth $14,726.07 across 49 cardholders. These include 14 direct purchases "
  "of postage stamps from USPS (the largest $1,218.00, $1,035.00 and $905.00), recurring postage-"
- "meter refills billed by Pitney Bowes — Employee 820C69E3 alone has eight charges of $210 to "
- "$527.50 — and retail shipping outlets such as POSTAL PACK & SHIP PLUS and GOIN' POSTAL.",
+ "meter refills billed by Pitney Bowes — Employee 820C69E3 alone has twelve, eight of them "
+ "between $210 and $527.50 and four at $45 — and retail shipping outlets such as POSTAL PACK & "
+ "SHIP PLUS and GOIN' POSTAL.",
  "Conclusion: this prohibition is unusually clear-cut, so most of these rows are genuine "
  "deviations: the University runs a central mailing operation precisely so that postage is bought "
  "at contract rates and charged back, and a departmental postage meter run on a P-Card bypasses "
- "that entirely. One false positive is present — MARRIOTT USPS CONFERENCE is a hotel charge "
- "for a USPS conference, not postage.",
+ "that entirely. One false positive is present — the seven MARRIOTT USPS CONFERENCE rows "
+ "(six charges and one credit) are hotel charges for a USPS conference, not postage.",
  "Follow-up: confirm with University Mailing whether the departments concerned have an approved "
  "exception; if not, the recurring Pitney Bowes meters should be closed and the postage moved to "
  "the central operation.",
@@ -248,23 +257,25 @@ T2_RESULTS = {
  "on their face. Gift-shop and museum-store purchases at places such as the NASA Exchange are more "
  "likely to be resale stock or programme materials for outreach activities than gifts, and need the "
  "Works description to resolve. Excluding nursery stock was necessary — it is bulk plant "
- "material for Grounds and Horticulture, and including it would have tripled the population with "
- "false positives.",
+ "material for Grounds and Horticulture, and including it would have raised the population from "
+ "356 to 573 transactions and roughly doubled its value with false positives.",
  "Follow-up: sample 25 of the flagged transactions across all three groups, read the business "
  "purpose entered in Works and inspect the receipts; if any gift cards or gift certificates are "
  "found, escalate immediately because those breach State statutes and not only University policy.",
 ],
 12: [
  "Result: 147 transactions worth $79,238.66 across 79 cardholders: 44 charges at membership clubs, "
- "19 at golf courses, seven at health-and-beauty spas ($8,545.06) and the remainder at recreation "
- "services. The single largest items are $5,000.00 (AAC CENTER), $4,513.77 (OSU COWBOY GOLF), "
- "$4,037.50 (SPACE CENTER HOUSTON), $3,840.00 (KICKINGBIRD GOLF CLUB) and two charges of $2,400.00 "
- "at B&V BODY WORKS GYM LLC. All seven spa charges belong to Employee 302B04AF at THE ROYAL "
- "TREATMENT ($1,980.00, $1,925.00, $1,450.00, $1,365.00, $1,300.00 and two smaller).",
+ "19 at golf courses, seven at health-and-beauty spas ($8,545.06), 64 at recreation services and "
+ "13 at other MCCs (charitable, civic, professional-service, barber and similar). The single largest items are $5,000.00 (AAC CENTER), $4,513.77 (OSU "
+ "COWBOY GOLF), $4,037.50 (SPACE CENTER HOUSTON), $3,865.80 (SILVERLEAF SHOTGUN SPORTS), $3,840.00 "
+ "(KICKINGBIRD GOLF CLUB) and two charges of $2,400.00 at B&V BODY WORKS GYM LLC. Five of the seven "
+ "spa charges belong to Employee 302B04AF at THE ROYAL TREATMENT ($1,980.00, $1,925.00, $1,450.00, "
+ "$1,365.00 and $1,300.00, together $8,020.00); the other two are single small charges by two "
+ "other cardholders.",
  "Conclusion: some of this population has a plausible business purpose — a golf course or a "
  "science centre can be the venue for a departmental event or a donor function, and coaching-"
  "association dues are institutional. Two findings do not. The recurring gym charges look like a "
- "membership paid by the University, which State statutes prohibit. The seven spa charges "
+ "membership paid by the University, which State statutes prohibit. Five spa charges worth $8,020 "
  "concentrated on one card are the strongest personal-use indicator in the whole data set, and that "
  "is the same cardholder who charged $24,921 at an optician in Control 3.",
  "Follow-up: open a full-scope investigation of Employee 302B04AF covering all 122 of that "
@@ -282,9 +293,10 @@ T2_RESULTS = {
  "effectively — the MCC blocking that the Purchasing Department maintains is doing its job, and "
  "the absence of late fees also suggests transactions are being processed inside the five-day "
  "window. For insurance the control is not effective: premiums must go on a requisition through "
- "Risk and Property Management, and 16 of these are real premiums. Two rows are false positives "
+ "Risk and Property Management, and 14 of these are real premiums. Two rows are false positives "
  "— SONY SERVICE charges where “INSURANCE” is a shipping-insurance line inside a "
- "repair invoice.",
+ "repair invoice — and two cancel out: a $14.00 EVENT TICKET INSURANCE charge that was "
+ "refunded by a matching $14.00 credit.",
  "Follow-up: report the insurance premiums to Risk and Property Management so the coverage can be "
  "brought under the University's programme, and confirm that the cash / ATM MCC blocks remain in "
  "place on every card as new cards are issued.",
@@ -331,10 +343,13 @@ T3_TESTS = {
 6: "Fraud risk / hypothesis: purchases made when the University is closed are less likely to have "
    "gone through a departmental pre-approval procedure, and weekend and holiday activity on a "
    "business card is a recognised indicator of personal use. Test: identify positive 2014 "
-   "transactions dated on a Saturday, a Sunday or one of the 2014 federal holidays. To stop the "
-   "population filling up with legitimate travel, merchant categories where weekend activity is "
-   "expected — lodging, airlines, car rental, restaurants, fuel, tolls, parking and transport "
-   "— are excluded, and only cardholders with at least five such charges are reported. "
+   "transactions dated on a Saturday, a Sunday or one of ten 2014 holiday closure dates (New "
+   "Year's Day, Martin Luther King Jr. Day, Memorial Day, Independence Day, Labor Day, Thanksgiving "
+   "and the day after, Christmas Eve, Christmas Day and New Year's Eve). To stop the population "
+   "filling up with legitimate travel, merchant categories where weekend activity is expected "
+   "— lodging, airlines, car rental, restaurants, caterers, fuel, tolls, taxis, parking, "
+   "transport and travel agencies — are excluded, and only cardholders with at least five such "
+   "charges are reported. "
    "Output: Name, closed-day charges, closed-day value, a split of charges by holiday / Saturday / "
    "Sunday, distinct vendors and the largest charge, sorted by closed-day value, largest first.",
 7: "Fraud risk / hypothesis: the procedure forbids purchases from friends and family, from any "
@@ -376,9 +391,10 @@ T3_RESULTS = {
  "MAD is the better guide here.",
  "Follow-up: two caveats matter. First, Benford's Law describes the population, and fraud confined "
  "to a handful of cardholders can be invisible in 112,140 transactions — so the test should be "
- "re-run per cardholder for the highest spenders. Second, the small shortfall on digit 1 with a "
- "mild excess on digits 3, 5, 8 and 9 is the direction one would expect from the near-limit "
- "clustering found in Question 5, and it is worth re-testing on the sub-population above $1,000.",
+ "re-run per cardholder for the highest spenders. Second, the near-limit clustering found in "
+ "Question 5 (amounts beginning with 4) is far too small to register here — 269 transactions "
+ "in 112,140 — which is exactly why a population-level Benford test should be paired with "
+ "targeted tests such as Question 5, or re-run on the sub-population above $1,000.",
 ],
 2: [
  "Result: 4,924 charges form 1,732 possible-duplicate occasions involving 577 cardholders, with a "
@@ -456,18 +472,22 @@ T3_RESULTS = {
  "evidence that distinguishes structuring from coincidence.",
 ],
 6: [
- "Result: after excluding travel, lodging, restaurant, fuel and transport merchant categories, 452 "
- "cardholders have five or more charges dated on a Saturday, Sunday or 2014 federal holiday: 5,717 "
- "charges worth $1,269,262.18. The largest are Employee 51914657 (168 charges, $77,806.16, "
- "including 132 Saturdays and 12 holidays), Employee E38DA379 (105 charges, $30,335.02) and "
- "Employee 14B7B862 (117 charges, of which 51 fall on Sundays).",
+ "Result: after excluding travel, lodging, restaurant, fuel and transport merchant categories, 463 "
+ "cardholders have five or more charges dated on a Saturday, Sunday or holiday closure date: 5,982 "
+ "charges worth $1,306,266.26. The largest by value are Employee 51914657 (170 charges, $80,126.05, "
+ "including 132 Saturdays and 14 holidays), Employee E38DA379 (105 charges, $30,335.02) and "
+ "Employee 080B4F7F (41 charges, $19,989.64). The most Sunday activity is on Employee 9A72417A (56 "
+ "Sunday charges, almost all at courier and freight carriers) and Employee 14B7B862 (51 Sunday "
+ "charges, mostly at book stores).",
  "Conclusion: this is a risk-ranking rather than an exception list. Facilities, grounds, utilities "
  "and animal-care staff genuinely work weekends and holidays, and the top two cardholders are the "
  "same central maintenance buyers who dominate the high-volume tests — for them weekend "
  "purchasing is expected. The signal to act on is narrower: charges on the major closed holidays, "
  "and cardholders whose weekend activity sits at consumer-facing merchants rather than at supply "
- "houses. A cardholder with 51 Sunday charges at retail merchants is a different proposition from a "
- "plumber buying parts on a Saturday call-out.",
+ "houses. A cardholder with 51 Sunday charges at book stores is a different proposition from a "
+ "plumber buying parts on a Saturday call-out. Courier charges are a caution in the other "
+ "direction: carriers bill on their own processing date, so a Sunday transaction date there is "
+ "more likely a billing artefact than a Sunday purchase.",
  "Follow-up: cross-reference the flagged holiday charges against departmental timesheets and "
  "on-call rosters, and re-run the test restricted to consumer-retail MCCs to isolate the personal-"
  "use candidates.",
@@ -484,8 +504,8 @@ T3_RESULTS = {
  "Conclusion: exclusivity is the point of this test — in a university of 2,021 cardholders and "
  "17,513 vendors, a supplier that exactly one person ever uses, for five or six figures, is either "
  "a genuinely specialised supplier or a relationship nobody else can see. Several here are clearly "
- "the former: Phonak Hearing Systems and Truscreen fit a speech and hearing clinic, and a "
- "veterinary diagnostic laboratory fits an animal-science programme. Two do not fit "
+ "the former: Phonak Hearing Systems and Truscreen fit a speech and hearing clinic, and Lake "
+ "Immunogenics and Intervet (animal-health suppliers) fit an animal-science programme. Two do not fit "
  "straightforwardly — an optician taking $39,834 in six charges from one cardholder, and a "
  "PayPal-routed payee — and both share a signature with findings elsewhere in this audit: "
  "Employee 302B04AF also holds the spa charges in Control 12 and the >$5,000 transactions in "

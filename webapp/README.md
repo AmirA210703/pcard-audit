@@ -149,10 +149,27 @@ if the key is missing.
 | `GEMINI_API_KEY` | for tab 1 (option A) | — | Google AI Studio key; `GOOGLE_API_KEY` also works |
 | `ANTHROPIC_API_KEY` | for tab 1 (option B) | — | Anthropic API key |
 | `AI_PROVIDER` | no | whichever key is set | `gemini` or `anthropic` |
-| `GEMINI_MODEL` | no | `gemini-3.5-flash-lite` | Gemini model tried first; busy or missing models fall through to the next in `GEMINI_FALLBACKS` |
+| `GEMINI_MODEL` | no | `gemini-3.5-flash-lite` | Gemini model tried first; busy or missing models fall through to the next in `GEMINI_FALLBACKS` (see below) |
+| `AI_HEDGE_AFTER_S` | no | `4` | Seconds to wait on a slow model before starting the next one alongside it |
+| `AI_TOTAL_DEADLINE_S` | no | `45` | The whole question gives up after this |
+| `AI_COOLDOWN_S` | no | `300` | How long a failed or slow model is moved to the back of the queue |
 | `ANTHROPIC_MODEL` | no | `claude-haiku-4-5-20251001` | Claude model that writes the SQL |
 | `ANTHROPIC_WORKSPACE_ID` | only for a multi-workspace key | — | Workspace the request runs in |
 | `PORT` / `HOST` | no | `5000` / `127.0.0.1` | Local server binding |
+
+### Model fallback
+
+Free-tier capacity changes by the hour, so the question page does not depend on one model:
+
+* A model that fails with a capacity, quota or timeout error hands over to the next one at
+  once. A model that is merely slow gets `AI_HEDGE_AFTER_S` seconds; then the next model is
+  started alongside it and whichever answers first is used.
+* The model that answered last is tried first on the next question, and a model that failed
+  or was slow goes to the back of the queue for `AI_COOLDOWN_S`. Only the first question
+  after an outage pays for discovering it.
+* With both `GEMINI_API_KEY` and `ANTHROPIC_API_KEY` set, a question that no model of the
+  chosen provider can take is passed to the other provider.
+* A bad key or a malformed request is not retried on other models — it is reported at once.
 
 ## Deploying
 

@@ -77,7 +77,7 @@ an ISO date from the `M/D/YYYY` text in a CTE.
 | 3 | Employees repeatedly duplicated | 577 employees; top employee has 78 occasions |
 | 4 | Four-digit round numbers | 160 charges, $343,004 — including 20 at exactly $5,000.00 |
 | 5 | Structuring below the $5,000 limit *(student-defined)* | 269 charges in $4,500–4,999.99 vs 22 in $5,000–5,499.99 — a 12:1 cliff |
-| 6 | Weekend and holiday purchasing *(student-defined)* | 452 cardholders, 5,717 charges, $1.27 m (travel MCCs excluded) |
+| 6 | Weekend and holiday purchasing *(student-defined)* | 463 cardholders, 5,982 charges, $1.31 m (travel MCCs excluded) |
 | 7 | Sole-cardholder vendors *(student-defined)* | 32 vendor relationships, $632,602 |
 | 8 | Credits with no matching charge *(student-defined)* | 358 credits, $91,855 |
 
